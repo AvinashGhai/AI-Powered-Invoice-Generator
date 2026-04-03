@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "lldb",
+      "request": "launch",
+      "args": [],
+      "cwd": "/Users/avinashghai/Desktop/invoice-generator/frontend/invoice-generator/src/assets",
+      "program": "/Users/avinashghai/Desktop/invoice-generator/frontend/invoice-generator/src/assets/build/Debug/outDebug"
+    }
+  ]
+}
