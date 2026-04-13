@@ -5,7 +5,8 @@ const path = require("path");
 const connectDB = require("./config/db");
 
 const authRoutes = require("./routes/authRoute");
-const invoiceRoutes = require("./controllers/invoiceController");
+const invoiceRoutes = require("./routes/invoiceRoute");
+const aiRoutes = require("./routes/aiRoute");
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use(express.json());
 //Routes here
 app.use("/api/auth", authRoutes);
 app.use("/api/invoices", invoiceRoutes);
+app.use("/api/ai",aiRoutes);
 
 //Start Server
 const PORT = process.env.PORT || 5000;

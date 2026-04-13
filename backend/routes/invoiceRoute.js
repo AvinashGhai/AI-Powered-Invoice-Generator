@@ -8,7 +8,7 @@ const {
   deleteInvoice,
 } = require("../controllers/invoiceController.js");
 
-const { protect } = require("../middlewares/authMiddleware.js");
+const { protect } = require("../middleware/authmiddleware.js");
 
 const router = express.Router();
 
