@@ -14,129 +14,82 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(""); // FIX 1: was missing
   const [fieldErrors, setFieldErrors] = useState({ email: "", password: "" });
   const [touched, setTouched] = useState({ email: false, password: false });
 
+  const validateField = (name, value) => {
+  setFieldErrors((prev) => ({
+    ...prev,
+    [name]: name === "email" ? validateEmail(value) : validatePassword(value),
+  }));
+};
+
   const handleInputChange = (e) => {
   const { name, value } = e.target;
+  setFormData((prev) => ({ ...prev, [name]: value }));
+  
+  setError(""); // 👈 add this — clears "Invalid credentials" on keystroke
 
-  setFormData((prev) => ({
-    ...prev,
-    [name]: value,
-  }));
-
-  // Real-time validation
   if (touched[name]) {
-    const newFieldErrors = { ...fieldErrors };
-
-    if (name === "email") {
-      newFieldErrors.email = validateEmail(value);
-    } else if (name === "password") {
-      newFieldErrors.password = validatePassword(value);
-    }
-
-    setFieldErrors(newFieldErrors);
+    validateField(name, value);
   }
 };
 
   const handleBlur = (e) => {
-  const { name } = e.target;
-
-  setTouched((prev) => ({
-    ...prev,
-    [name]: true,
-  }));
-
-  // Validate on blur
-  const newFieldErrors = { ...fieldErrors };
-
-  if (name === "email") {
-    newFieldErrors.email = validateEmail(formData.email);
-  } else if (name === "password") {
-    newFieldErrors.password = validatePassword(formData.password);
-  }
-
-  setFieldErrors(newFieldErrors);
-};
-
-  const validateField = (name, value) => {
-    let err = "";
-    if (name === "email") {
-      if (!value) err = "Email is required";
-      else if (!/\S+@\S+\.\S+/.test(value)) err = "Invalid email format";
-    }
-    if (name === "password") {
-      if (!value) err = "Password is required";
-      else if (value.length < 6) err = "Password must be at least 6 characters";
-    }
-    setFieldErrors((prev) => ({ ...prev, [name]: err }));
+    const { name, value } = e.target;
+    setTouched((prev) => ({ ...prev, [name]: true }));
+    validateField(name, value); // FIX 2: reuse validateField instead of duplicating logic
   };
 
-  const isFormValid = () =>
-    formData.email && formData.password && !fieldErrors.email && !fieldErrors.password;
+  const isFormValid = () => {
+    const emailError = validateEmail(formData.email);
+    const passwordError = validatePassword(formData.password);
+    return !emailError && !passwordError && formData.email && formData.password;
+  };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  // Validate all fields before submission
-  const emailError = validateEmail(formData.email);
-  const passwordError = validatePassword(formData.password);
+    const emailError = validateEmail(formData.email);
+    const passwordError = validatePassword(formData.password);
 
-  if (emailError || passwordError) {
-    setFieldErrors({
-      email: emailError,
-      password: passwordError,
-    });
+    if (emailError || passwordError) {
+      setFieldErrors({ email: emailError, password: passwordError });
+      setTouched({ email: true, password: true });
+      return;
+    }
 
-    setTouched({
-      email: true,
-      password: true,
-    });
+    setIsLoading(true);
+    setError("");
+    setSuccess("");
 
-    return;
-  }
+    try {
+      const response = await axiosInstance.post(API_PATHS.AUTH.LOGIN, formData);
 
-  setIsLoading(true);
-  setError("");
-  setSuccess("");
+      if (response.status === 200) {
+        const { token } = response.data;
 
-  try {
-    const response = await axiosInstance.post(
-      API_PATHS.AUTH.LOGIN,
-      formData
-    );
-
-    if (response.status === 200) {
-      const { token } = response.data;
-
-      if (token) {
-        setSuccess("Login successful");
-
-        // NOTE: your login takes (userData, token)
-        login(response.data, token);
-
-        // Redirect based on role
-        setTimeout(() => {
-          window.location.href = "/dashboard";
-        }, 2000);
+        if (token) {
+          setSuccess("Login successful! Redirecting...");
+          login(response.data, token);
+          setTimeout(() => {
+            navigate("/dashboard"); // FIX 3: use navigate instead of window.location.href
+          }, 1500);
+        }
+      } else {
+        setError(response.data.message || "Invalid credentials");
       }
-    } else {
-      setError(response.data.message || "Invalid credentials");
+    } catch (err) {
+      if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else {
+        setError("An error occurred during login.");
+      }
+    } finally {
+      setIsLoading(false);
     }
-  } catch (err) {
-    if (
-      err.response &&
-      err.response.data &&
-      err.response.data.message
-    ) {
-      setError(err.response.data.message);
-    } else {
-      setError("An error occurred during login.");
-    }
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
@@ -144,8 +97,10 @@ const Login = () => {
 
         {/* Icon + heading */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
-            style={{ backgroundColor: "#1e3a8a" }}>
+          <div
+            className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
+            style={{ backgroundColor: "#1e3a8a" }}
+          >
             <FileText className="text-white" size={28} />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-1">
@@ -221,6 +176,11 @@ const Login = () => {
               <p className="text-red-500 text-xs mt-1">{fieldErrors.password}</p>
             )}
           </div>
+
+          {/* FIX 4: render success message so the redirect delay is meaningful */}
+          {success && (
+            <p className="text-green-500 text-sm text-center">{success}</p>
+          )}
 
           {/* Error */}
           {error && (
