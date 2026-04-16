@@ -1,4 +1,9 @@
 import { Sparkles, BarChart2, Mail, FileText } from "lucide-react";
+import {
+  LayoutDashboard,
+  Plus,
+  Users
+} from "lucide-react";
 
 export const FEATURES = [
     {
@@ -73,4 +78,12 @@ export const FAQS = [
         question: "How does billing work?",
         answer: "Plans are per workspace, not per account. You can upgrade one workspace, and still have other workspaces on the free plan. Billing resets monthly.",
     },
+];
+
+// Navigation items configuration
+export const NAVIGATION_MENU = [
+  { id: "dashboard", name: "Dashboard", icon: LayoutDashboard },
+  { id: "invoices", name: "Invoices", icon: FileText },
+  { id: "invoices/new", name: "Create Invoice", icon: Plus },
+  { id: "profile", name: "Profile", icon: Users },
 ];
