@@ -60,10 +60,11 @@ const ProfileDropdown = ({
 
           {/* VIEW PROFILE */}
           <button
-            className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition"
-          >
-            View Profile
-          </button>
+  onClick={onViewProfile}   // 🔥 THIS LINE
+  className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition"
+>
+  View Profile
+</button>
 
           {/* DIVIDER */}
           <div className="border-t border-gray-100" />
