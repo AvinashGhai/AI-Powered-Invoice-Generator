@@ -7,31 +7,7 @@ exports.createInvoice = async (req, res) => {
   try {
     const user = req.user;
 
-  const {
-    invoiceNumber,
-    invoiceDate,
-    dueDate,
-    billFrom,
-    billTo,
-    items,
-    notes,
-    paymentTerms,
-  } = req.body;
-
-  // subtotal calculation
-  let subtotal = 0;
-  let taxTotal = 0;
-
-  items.forEach((item) => {
-    subtotal += item.unitPrice * item.quantity;
-    taxTotal += (item.unitPrice * item.quantity) * (item.taxPercent || 0) / 100;
-  });
-
-   const total = subtotal + taxTotal;
-
-    // ✅ create invoice
-    const invoice = await Invoice.create({
-      user: user.id,
+    const {
       invoiceNumber,
       invoiceDate,
       dueDate,
@@ -40,18 +16,54 @@ exports.createInvoice = async (req, res) => {
       items,
       notes,
       paymentTerms,
+    } = req.body;
+
+    let subtotal = 0;
+    let taxTotal = 0;
+
+    // ✅ use taxPrecent to match model (or taxPercent if frontend sends it)
+    items.forEach((item) => {
+      const tax = item.taxPrecent ?? item.taxPercent ?? 0;
+      subtotal += item.unitPrice * item.quantity;
+      taxTotal += (item.unitPrice * item.quantity) * tax / 100;
+    });
+
+    const total = subtotal + taxTotal;
+
+    // ✅ map items to match model schema exactly
+    const mappedItems = items.map((item) => {
+      const tax = item.taxPrecent ?? item.taxPercent ?? 0;
+      const qty = Number(item.quantity) || 1;
+      const price = Number(item.unitPrice) || 0;
+      return {
+        name:       item.name,
+        quantity:   qty,
+        unitPrice:  price,
+        taxPrecent: tax,
+        total:      qty * price * (1 + tax / 100),
+      };
+    });
+
+    const invoice = await Invoice.create({
+      user:          user.id,
+      invoiceSchema: invoiceNumber, // ✅ required by model
+      invoiceNumber,
+      invoiceDate,
+      dueDate,
+      billFrom,
+      billTo,
+      items:         mappedItems,
+      notes,
+      paymentTerms,
       subtotal,
-      taxTotal,
+      taxtotal:      taxTotal,      // ✅ model field is taxtotal not taxTotal
       total,
     });
 
-    await invoice.save();
-    res.status(201);
+    res.status(201).json(invoice);
 
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error creating invoice", error: error.message });
+    res.status(500).json({ message: "Error creating invoice", error: error.message });
   }
 };
 
@@ -59,13 +71,18 @@ exports.createInvoice = async (req, res) => {
 // @route   GET /api/invoices
 // @access  Private
 exports.getInvoices = async (req, res) => {
-    try {
-        const invoices = await Invoice.find().populate("user","name email");
-        res.json(invoices);
+  try {
+    const invoices = await Invoice.find({ user: req.user.id }).sort({
+      createdAt: -1,
+    });
+
+    res.json(invoices);
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error updating invoice", error: error.message });
+    console.error("🔥 ERROR:", error);
+    res.status(500).json({
+      message: "Error fetching invoices",
+      error: error.message,
+    });
   }
 };
 
@@ -73,20 +90,24 @@ exports.getInvoices = async (req, res) => {
 // @route   GET /api/invoices/:id
 // @access  Private
 exports.getInvoiceById = async (req, res) => {
-     try {
-         const invoice = await Invoice.findById(req.params.id).populate(
-      "user",
-      "name email"
-    );
+  try {
+    const invoice = await Invoice.findById(req.params.id);
 
-    if (!invoice)
+    if (!invoice) {
       return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    // 🔥 ADD THIS CHECK
+    if (invoice.user.toString() !== req.user.id) {
+      return res.status(401).json({ message: "Not authorized" });
+    }
 
     res.json(invoice);
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error fetching invoice", error: error.message });
+    res.status(500).json({
+      message: "Error fetching invoice",
+      error: error.message,
+    });
   }
 };
 
@@ -94,62 +115,66 @@ exports.getInvoiceById = async (req, res) => {
 // @route   PUT /api/invoices/:id
 // @access  Private
 exports.updateInvoice = async (req, res) => {
-     try {
-        const {
-  invoiceNumber,
-  invoiceDate,
-  dueDate,
-  billFrom,
-  billTo,
-  items,
-  notes,
-  paymentTerms,
-  status,
-} = req.body;
+  try {
+    const {
+      invoiceNumber,
+      invoiceDate,
+      dueDate,
+      billFrom,
+      billTo,
+      items,
+      notes,
+      paymentTerms,
+      status,
+    } = req.body;
 
-// recalculate totals if items changed
-let subtotal = 0;
-let taxTotal = 0;
+    let subtotal = 0;
+    let taxTotal = 0;
 
-if (items && items.length > 0) {
-  items.forEach((item) => {
-    subtotal += item.unitPrice * item.quantity;
+    const mappedItems = (items || []).map((item) => {
+      const tax   = item.taxPrecent ?? item.taxPercent ?? 0;
+      const qty   = Number(item.quantity) || 1;
+      const price = Number(item.unitPrice) || 0;
+      subtotal += qty * price;
+      taxTotal += qty * price * tax / 100;
+      return {
+        name:       item.name,
+        quantity:   qty,
+        unitPrice:  price,
+        taxPrecent: tax,
+        total:      qty * price * (1 + tax / 100),
+      };
+    });
 
-    taxTotal +=
-      ((item.unitPrice * item.quantity) * (item.taxPercent || 0)) / 100;
-  });
-}
+    const total = subtotal + taxTotal;
 
-const total = subtotal + taxTotal;
+    const updatedInvoice = await Invoice.findByIdAndUpdate(
+      req.params.id,
+      {
+        invoiceSchema: invoiceNumber, // ✅
+        invoiceNumber,
+        invoiceDate,
+        dueDate,
+        billFrom,
+        billTo,
+        items:         mappedItems,
+        notes,
+        paymentTerms,
+        status,
+        subtotal,
+        taxtotal:      taxTotal,      // ✅
+        total,
+      },
+      { new: true }
+    );
 
-const updatedInvoice = await Invoice.findByIdAndUpdate(
-  req.params.id,
-  {
-    invoiceNumber,
-    invoiceDate,
-    dueDate,
-    billFrom,
-    billTo,
-    items,
-    notes,
-    paymentTerms,
-    status,
-    subtotal,
-    taxTotal,
-    total,
-  },
-  { new: true }
-);
+    if (!updatedInvoice)
+      return res.status(404).json({ message: "Invoice not found" });
 
-if (!updatedInvoice)
-  return res.status(404).json({ message: "Invoice not found" });
-
-res.json(updatedInvoice);
+    res.json(updatedInvoice);
 
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error updating invoice", error: error.message });
+    res.status(500).json({ message: "Error updating invoice", error: error.message });
   }
 };
 

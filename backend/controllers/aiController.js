@@ -1,4 +1,5 @@
 const { GoogleGenAI } = require("@google/genai");
+const Invoice = require("../models/Invoice");
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
@@ -44,13 +45,11 @@ IMPORTANT:
 `;
 
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash-latest",
+      model: "gemini-2.5-flash", // ✅ fixed
       contents: prompt,
     });
 
     let responseText = response.text;
-
-    // Handle case where response.text is not a string
     if (typeof responseText !== "string") {
       if (typeof response.text === "function") {
         responseText = response.text();
@@ -59,19 +58,16 @@ IMPORTANT:
       }
     }
 
-    // Clean markdown (```json ... ```)
     const cleanedJson = responseText
       .replace(/```json/g, "")
       .replace(/```/g, "")
       .trim();
 
     let parsedData;
-
     try {
       parsedData = JSON.parse(cleanedJson);
     } catch (err) {
       console.error("JSON parse error:", cleanedJson);
-
       return res.status(500).json({
         message: "AI returned invalid JSON",
         raw: responseText,
@@ -108,21 +104,20 @@ const generateReminderEmail = async (req, res) => {
 You are a professional and polite accounting assistant. Write a friendly reminder email to a client.
 
 Use the following details to personalize the email:
-- Client Name: ${invoice.billTo.clientName}
+- Client Name: ${invoice.billTo?.Clientname || invoice.billTo?.clientName || "Client"}
 - Invoice Number: ${invoice.invoiceNumber}
-- Amount Due: $${invoice.total.toFixed(2)}
-- Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}
+- Amount Due: $${(invoice.total || 0).toFixed(2)}
+- Due Date: ${invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : "N/A"}
 
 The tone should be friendly but clear. Keep it concise. Start the email with "Subject:".
 `;
 
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.5-flash", // ✅ fixed
       contents: prompt,
     });
 
     const emailText = response.text;
-
     res.status(200).json({ email: emailText });
 
   } catch (error) {
@@ -134,60 +129,69 @@ The tone should be friendly but clear. Keep it concise. Start the email with "Su
   }
 };
 
-// 🔹 Dashboard Summary (simple placeholder)
+// 🔹 Dashboard Summary with AI Insights
 const getDashboardSummary = async (req, res) => {
   try {
     const invoices = await Invoice.find({ user: req.user.id });
 
     if (invoices.length === 0) {
       return res.status(200).json({
-        insights: ["No invoice data available to generate insights."],
+        insights: ["No invoice data yet. Create your first invoice to get AI-powered insights."],
       });
     }
 
-    // Process and summarize data
-    const totalInvoices = invoices.length;
-
-    const paidInvoices = invoices.filter(inv => inv.status === "Paid");
-    const unpaidInvoices = invoices.filter(inv => inv.status !== "Paid");
-
-    const totalRevenue = paidInvoices.reduce(
-      (acc, inv) => acc + inv.total,
-      0
+    const paidInvoices   = invoices.filter((inv) => inv.status === "paid");
+    const unpaidInvoices = invoices.filter((inv) => inv.status === "unpaid");
+    const totalRevenue     = paidInvoices.reduce((acc, inv) => acc + (inv.total || 0), 0);
+    const totalOutstanding = unpaidInvoices.reduce((acc, inv) => acc + (inv.total || 0), 0);
+    const overdueInvoices  = unpaidInvoices.filter(
+      (inv) => inv.dueDate && new Date(inv.dueDate) < new Date()
     );
 
-    const totalOutstanding = unpaidInvoices.reduce(
-      (acc, inv) => acc + inv.total,
-      0
-    );
+    // ✅ Always return fallback insights without calling AI
+    // Remove this block and uncomment the AI section below once you have quota
+    const insights = [
+      `You have ${invoices.length} total invoice${invoices.length !== 1 ? "s" : ""} on record.`,
+      `$${totalOutstanding.toFixed(2)} outstanding across ${unpaidInvoices.length} unpaid invoice${unpaidInvoices.length !== 1 ? "s" : ""}.`,
+      overdueInvoices.length > 0
+        ? `${overdueInvoices.length} invoice${overdueInvoices.length !== 1 ? "s are" : " is"} overdue — follow up soon.`
+        : `No overdue invoices — great job staying on top of payments!`,
+    ];
 
-    const recentInvoices = invoices.slice(0, 5)
-      .map(inv => `#${inv.invoiceNumber} - ${inv.status} - $${inv.total}`)
-      .join(", ");
+    return res.status(200).json({ insights });
 
+    
     const dataSummary = `
-- Total number of invoices: ${totalInvoices}
-- Total paid invoices: ${paidInvoices.length}
-- Total unpaid/pending invoices: ${unpaidInvoices.length}
-- Total revenue from paid invoices: $${totalRevenue.toFixed(2)}
-- Total outstanding amount from unpaid/pending invoices: $${totalOutstanding.toFixed(2)}
-- Recent invoices (last 5): ${recentInvoices}
+- Total invoices: ${invoices.length}
+- Paid: ${paidInvoices.length}, Unpaid: ${unpaidInvoices.length}
+- Overdue: ${overdueInvoices.length}
+- Revenue: $${totalRevenue.toFixed(2)}, Outstanding: $${totalOutstanding.toFixed(2)}
 `;
-
-    // Send summary (you can also pass this to AI if needed)
-    res.status(200).json({
-      summary: dataSummary,
-      stats: {
-        totalInvoices,
-        paid: paidInvoices.length,
-        unpaid: unpaidInvoices.length,
-        revenue: totalRevenue,
-        outstanding: totalOutstanding,
-      },
+    const prompt = `
+You are a financial assistant. Based on this invoice data, generate exactly 3 short actionable insights.
+Data: ${dataSummary}
+Rules: Return ONLY a JSON array of 3 strings. No markdown. No explanation.
+Example: ["Insight one.", "Insight two.", "Insight three."]
+`;
+    const response = await ai.models.generateContent({
+      model: "gemini-2.0-flash",
+      contents: prompt,
     });
+    let responseText = response.text;
+    if (typeof responseText === "function") responseText = responseText();
+    const cleaned = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
+    let aiInsights;
+    try {
+      aiInsights = JSON.parse(cleaned);
+      if (!Array.isArray(aiInsights)) throw new Error("Not an array");
+    } catch {
+      aiInsights = insights; // fallback
+    }
+    return res.status(200).json({ insights: aiInsights });
+    
 
   } catch (error) {
-    console.error("Error dashboard summary with AI:", error);
+    console.error("Error generating dashboard summary:", error);
     res.status(500).json({
       message: "Failed to generate dashboard summary.",
       details: error.message,

@@ -37,7 +37,7 @@ const invoiceSchema = new mongoose.Schema({
         phone: String,
     },
     billTo:{
-        Clientname: String,
+        clientname: String,
         email: String,
         address: String,
         phone: String,
