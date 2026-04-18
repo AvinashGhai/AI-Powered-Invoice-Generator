@@ -1,7 +1,7 @@
 // Dashboard.jsx
 import { useState, useEffect } from "react";
 import {
-  TrendingUp, Clock, CheckCircle, AlertCircle, Loader2,
+  TrendingUp, Clock, CheckCircle, AlertCircle,
   FileText, ArrowUpRight, ReceiptText
 } from "lucide-react";
 import moment from "moment";
@@ -15,10 +15,11 @@ const fmt = (n) =>
     : "—";
 
 const STATUS_CONFIG = {
-  paid:     { label: "Paid",     bg: "bg-green-50",  text: "text-green-700",  dot: "bg-green-500"  },
-  pending:  { label: "Pending",  bg: "bg-amber-50",  text: "text-amber-700",  dot: "bg-amber-400"  },
-  overdue:  { label: "Overdue",  bg: "bg-red-50",    text: "text-red-700",    dot: "bg-red-500"    },
-  draft:    { label: "Draft",    bg: "bg-gray-100",  text: "text-gray-600",   dot: "bg-gray-400"   },
+  paid:    { label: "Paid",    bg: "bg-green-50", text: "text-green-700", dot: "bg-green-500" },
+  pending: { label: "Pending", bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-400" },
+  overdue: { label: "Overdue", bg: "bg-red-50",   text: "text-red-700",   dot: "bg-red-500"   },
+  draft:   { label: "Draft",   bg: "bg-gray-100", text: "text-gray-600",  dot: "bg-gray-400"  },
+  unpaid:  { label: "Unpaid",  bg: "bg-orange-50",text: "text-orange-700",dot: "bg-orange-400"},
 };
 
 const StatusBadge = ({ status }) => {
@@ -56,7 +57,7 @@ const SkeletonRow = () => (
   <tr className="border-b border-gray-50">
     {[40, 28, 20, 16].map((w, i) => (
       <td key={i} className="px-5 py-4">
-        <div className={`h-3.5 bg-gray-100 rounded animate-pulse w-${w}`} />
+        <div className="h-3.5 bg-gray-100 rounded animate-pulse" style={{ width: `${w * 4}px` }} />
       </td>
     ))}
   </tr>
@@ -79,6 +80,10 @@ const EmptyState = ({ onCreateClick }) => (
   </div>
 );
 
+// ✅ helper — handles both Clientname (backend typo) and clientName
+const getClientName = (billTo) =>
+  billTo?.Clientname || billTo?.clientName || null;
+
 const Dashboard = ({ onNavigate }) => {
   const [loading, setLoading] = useState(true);
   const [statsData, setStatsData] = useState([]);
@@ -87,18 +92,27 @@ const Dashboard = ({ onNavigate }) => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const [statsRes, invoicesRes] = await Promise.all([
-          axiosInstance.get(API_PATHS.DASHBOARD.STATS),
-          axiosInstance.get(API_PATHS.DASHBOARD.RECENT_INVOICES),
-        ]);
-        const s = statsRes.data?.data ?? statsRes.data ?? {};
+        // ✅ Fix: stats come from invoices list, not AI endpoint
+        const invoicesRes = await axiosInstance.get(API_PATHS.INVOICE.GET_ALL_INVOICES);
+        const invoices = Array.isArray(invoicesRes.data) ? invoicesRes.data : [];
+
+        // ✅ Calculate stats from invoices locally
+        const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+        const paid    = invoices.filter((inv) => inv.status === "paid").length;
+        const unpaid  = invoices.filter((inv) => inv.status === "unpaid").length;
+        const overdue = invoices.filter((inv) => {
+          return inv.status !== "paid" && inv.dueDate && new Date(inv.dueDate) < new Date();
+        }).length;
+
         setStatsData([
-          { label: "Total Revenue", value: fmt(s.totalRevenue), icon: TrendingUp,    color: "blue"  },
-          { label: "Pending",        value: s.pending  ?? "—",   icon: Clock,         color: "amber" },
-          { label: "Paid",           value: s.paid     ?? "—",   icon: CheckCircle,   color: "green" },
-          { label: "Overdue",        value: s.overdue  ?? "—",   icon: AlertCircle,   color: "red"   },
+          { label: "Total Revenue", value: fmt(totalRevenue), icon: TrendingUp,  color: "blue"  },
+          { label: "Unpaid",        value: unpaid,            icon: Clock,       color: "amber" },
+          { label: "Paid",          value: paid,              icon: CheckCircle, color: "green" },
+          { label: "Overdue",       value: overdue,           icon: AlertCircle, color: "red"   },
         ]);
-        setRecentInvoices(invoicesRes.data ?? []);
+
+        // ✅ Show only 5 most recent
+        setRecentInvoices(invoices.slice(0, 5));
       } catch (err) {
         console.error(err);
       } finally {
@@ -110,6 +124,7 @@ const Dashboard = ({ onNavigate }) => {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
+
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
@@ -141,7 +156,7 @@ const Dashboard = ({ onNavigate }) => {
         }
       </div>
 
-      {/* ✅ AI Insights Card */}
+      {/* AI Insights Card */}
       <AIInsightCard invoices={recentInvoices} stats={statsData} />
 
       {/* Recent invoices */}
@@ -177,31 +192,35 @@ const Dashboard = ({ onNavigate }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {recentInvoices.map((inv) => (
-                  <tr key={inv._id} className="hover:bg-gray-50/50 transition-colors group">
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold flex items-center justify-center shrink-0">
-                          {inv.billTo?.clientName?.[0]?.toUpperCase() ?? "?"}
+                {recentInvoices.map((inv) => {
+                  // ✅ handles both Clientname (backend typo) and clientName
+                  const clientName = getClientName(inv.billTo);
+                  return (
+                    <tr key={inv._id} className="hover:bg-gray-50/50 transition-colors group">
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold flex items-center justify-center shrink-0">
+                            {clientName?.[0]?.toUpperCase() ?? "?"}
+                          </div>
+                          <span className="text-sm font-medium text-gray-800 truncate max-w-[160px]">
+                            {clientName ?? "—"}
+                          </span>
                         </div>
-                        <span className="text-sm font-medium text-gray-800 truncate max-w-[160px]">
-                          {inv.billTo?.clientName ?? "—"}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span className="text-sm font-semibold text-gray-900">
+                          {fmt(inv.total)}
                         </span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className="text-sm font-semibold text-gray-900">
-                        {fmt(inv.total)}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <StatusBadge status={inv.status} />
-                    </td>
-                    <td className="px-5 py-3.5 text-sm text-gray-500">
-                      {inv.dueDate ? moment(inv.dueDate).format("MMM D, YYYY") : "—"}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <StatusBadge status={inv.status} />
+                      </td>
+                      <td className="px-5 py-3.5 text-sm text-gray-500">
+                        {inv.dueDate ? moment(inv.dueDate).format("MMM D, YYYY") : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

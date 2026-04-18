@@ -9,12 +9,12 @@ export const API_PATHS = {
   },
 
   INVOICE: {
-    CREATE: "/api/invoices/",
+    CREATE_INVOICE: "/api/invoices/",  // ✅ renamed from CREATE
     GET_ALL_INVOICES: "/api/invoices/",
     GET_INVOICE_BY_ID: (id) => `/api/invoices/${id}`,
     UPDATE_INVOICE: (id) => `/api/invoices/${id}`,
     DELETE_INVOICE: (id) => `/api/invoices/${id}`,
-  },
+},
 
   AI: {
     PARSE_INVOICE_TEXT: "/api/ai/parse-text",

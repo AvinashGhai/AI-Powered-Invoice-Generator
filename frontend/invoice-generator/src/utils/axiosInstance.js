@@ -32,13 +32,22 @@ axiosInstance.interceptors.response.use(
     return response;
   },
   (error) => {
-    // Handle common errors globally
     if (error.response) {
+      if (error.response.status === 401) {
+        console.error("Unauthorized! Token missing or expired. Redirecting to login...");
+        localStorage.removeItem("token"); // clear bad token
+        window.location.href = "/Login";  // redirect to login
+      }
+      if (error.response.status === 403) {
+        console.error("Forbidden. You don't have access.");
+      }
       if (error.response.status === 500) {
         console.error("Server error. Please try again later.");
       }
     } else if (error.code === "ECONNABORTED") {
       console.error("Request timeout. Please try again.");
+    } else if (!error.response) {
+      console.error("Network error. Is the backend running on port 8000?");
     }
 
     return Promise.reject(error);

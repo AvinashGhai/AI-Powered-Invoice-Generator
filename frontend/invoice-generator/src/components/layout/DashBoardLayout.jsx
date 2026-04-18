@@ -1,39 +1,38 @@
 // DashboardLayout.jsx
 import { useState, useEffect } from "react";
+import CreateInvoice from "../../pages/invoices/CreateInvoices";
+import AllInvoices from "../../pages/invoices/AllInvoices";
+import ProfilePage from "../../pages/Profile/ProfilePage";
+import Dashboard from "../../pages/Dashboard/Dashboard";
 import {
   LayoutDashboard, FileText, Plus, Users,
   LogOut, Menu, X, ChevronLeft,
 } from "lucide-react";
 import { useAuth } from "../../context/authContext";
 import ProfileDropdown from "../../components/layout/ProfileDropDown";
-import Dashboard from "../../pages/Dashboard/Dashboard";
 
 const NAVIGATION_MENU = [
-  { id: "dashboard",    name: "Dashboard",      icon: LayoutDashboard },
-  { id: "invoices",     name: "Invoices",        icon: FileText        },
-  { id: "invoices/new", name: "Create Invoice",  icon: Plus            },
-  { id: "profile",      name: "Profile",         icon: Users           },
+  { id: "dashboard", name: "Dashboard", icon: LayoutDashboard },
+  { id: "invoices", name: "Invoices", icon: FileText },
+  { id: "invoices/new", name: "Create Invoice", icon: Plus },
+  { id: "profile", name: "Profile", icon: Users },
 ];
 
 const PAGE_TITLES = {
-  dashboard:      "Dashboard",
-  invoices:       "Invoices",
+  dashboard: "Dashboard",
+  invoices: "Invoices",
   "invoices/new": "Create Invoice",
-  profile:        "Profile",
+  profile: "Profile",
 };
-
-const InvoicesPage      = () => <h2 className="text-xl font-bold text-gray-900">All Invoices</h2>;
-const CreateInvoicePage = () => <h2 className="text-xl font-bold text-gray-900">Create Invoice</h2>;
-const ProfilePage       = () => <h2 className="text-xl font-bold text-gray-900">Profile</h2>;
 
 const DashboardLayout = () => {
   const { user, logout } = useAuth();
 
-  const [activeNavItem,        setActiveNavItem]        = useState("dashboard");
-  const [sidebarOpen,          setSidebarOpen]          = useState(true);
-  const [sidebarCollapsed,     setSidebarCollapsed]     = useState(false);
-  const [isMobile,             setIsMobile]             = useState(false);
-  const [profileDropdownOpen,  setProfileDropdownOpen]  = useState(false);
+  const [activeNavItem, setActiveNavItem] = useState("dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -182,8 +181,8 @@ const DashboardLayout = () => {
         {/* CONTENT */}
         <main className="flex-1 p-6 overflow-y-auto">
           {activeNavItem === "dashboard"    && <Dashboard onNavigate={navigate} />}
-          {activeNavItem === "invoices"     && <InvoicesPage />}
-          {activeNavItem === "invoices/new" && <CreateInvoicePage />}
+          {activeNavItem === "invoices"     && <AllInvoices />}
+          {activeNavItem === "invoices/new" && <CreateInvoice />}
           {activeNavItem === "profile"      && <ProfilePage />}
         </main>
       </div>
