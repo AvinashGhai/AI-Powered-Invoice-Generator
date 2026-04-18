@@ -1,217 +1,216 @@
+// Dashboard.jsx
 import { useState, useEffect } from "react";
 import {
-  LayoutDashboard,
-  FileText,
-  Plus,
-  Users,
-  LogOut,
-  Menu,
-  X,
+  TrendingUp, Clock, CheckCircle, AlertCircle, Loader2,
+  FileText, ArrowUpRight, ReceiptText
 } from "lucide-react";
-import { useAuth } from "../../context/authContext";
-import ProfileDropdown from "../../components/layout/ProfileDropDown";
+import moment from "moment";
+import axiosInstance from "../../utils/axiosInstance";
+import { API_PATHS } from "../../utils/apiPaths";
+import AIInsightCard from "../../components/AIInsightCard";
 
+const fmt = (n) =>
+  n != null
+    ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n)
+    : "—";
 
-/* ================= NAV MENU ================= */
-const NAVIGATION_MENU = [
-  { id: "dashboard", name: "Dashboard", icon: LayoutDashboard },
-  { id: "invoices", name: "Invoices", icon: FileText },
-  { id: "invoices/new", name: "Create Invoice", icon: Plus },
-  { id: "profile", name: "Profile", icon: Users },
-];
+const STATUS_CONFIG = {
+  paid:     { label: "Paid",     bg: "bg-green-50",  text: "text-green-700",  dot: "bg-green-500"  },
+  pending:  { label: "Pending",  bg: "bg-amber-50",  text: "text-amber-700",  dot: "bg-amber-400"  },
+  overdue:  { label: "Overdue",  bg: "bg-red-50",    text: "text-red-700",    dot: "bg-red-500"    },
+  draft:    { label: "Draft",    bg: "bg-gray-100",  text: "text-gray-600",   dot: "bg-gray-400"   },
+};
 
-/* ================= NAV ITEM ================= */
-const NavigationItem = ({ item, isActive, onClick, isCollapsed }) => {
-  const Icon = item.icon;
-
+const StatusBadge = ({ status }) => {
+  const cfg = STATUS_CONFIG[status?.toLowerCase()] ?? STATUS_CONFIG.draft;
   return (
-    <button
-      onClick={() => onClick(item.id)}
-      className={`w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all
-        ${
-          isActive
-            ? "bg-blue-50 text-blue-900 shadow-sm"
-            : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-        }`}
-    >
-      <Icon
-        className={`h-5 w-5 ${
-          isActive ? "text-blue-900" : "text-gray-500"
-        }`}
-      />
-      {!isCollapsed && <span className="ml-3">{item.name}</span>}
-    </button>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${cfg.bg} ${cfg.text}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+      {cfg.label}
+    </span>
   );
 };
 
-/* ================= PAGES ================= */
-
-const DashboardPage = () => (
-  <div>
-    <h2 className="text-xl font-bold">Welcome back 👋</h2>
-    <p className="text-gray-400">Here's your invoice overview.</p>
-  </div>
-);
-
-const InvoicesPage = () => (
-  <div>
-    <h2 className="text-xl font-bold">All Invoices</h2>
-  </div>
-);
-
-const CreateInvoicePage = () => (
-  <div>
-    <h2 className="text-xl font-bold">Create Invoice</h2>
-  </div>
-);
-
-const ProfilePage = () => (
-  <div>
-    <h2 className="text-xl font-bold">Profile</h2>
-  </div>
-);
-
-/* ================= MAIN LAYOUT ================= */
-
-const DashboardLayout = () => {
-  const { user, logout } = useAuth();
-
-  const [activeNavItem, setActiveNavItem] = useState("dashboard");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
-
-  /* ===== RESPONSIVE ===== */
-  useEffect(() => {
-    const handleResize = () => {
-      const mobile = window.innerWidth < 768;
-      setIsMobile(mobile);
-      setSidebarOpen(!mobile);
-    };
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  /* ===== NAVIGATION ===== */
-  const handleNavigation = (id) => {
-    setActiveNavItem(id);
+const StatCard = ({ label, value, icon: Icon, color }) => {
+  const colors = {
+    blue:  { ring: "ring-blue-100",  bg: "bg-blue-50",  icon: "text-blue-600"  },
+    amber: { ring: "ring-amber-100", bg: "bg-amber-50", icon: "text-amber-500" },
+    green: { ring: "ring-green-100", bg: "bg-green-50", icon: "text-green-600" },
+    red:   { ring: "ring-red-100",   bg: "bg-red-50",   icon: "text-red-500"   },
   };
-
-  /* ===== USER INITIALS ===== */
-  const initials = user?.name
-    ? user.name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2)
-    : "U";
-
+  const c = colors[color] ?? colors.blue;
   return (
-    <div className="flex h-screen bg-gray-50">
-
-      {/* ================= SIDEBAR ================= */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-50 bg-white border-r transition-all
-        ${sidebarCollapsed ? "w-20" : "w-64"}
-        ${isMobile
-          ? sidebarOpen
-            ? "translate-x-0"
-            : "-translate-x-full"
-          : "translate-x-0"
-        }`}
-      >
-        {/* LOGO */}
-        <div className="h-16 flex items-center justify-between px-4 border-b">
-          {!sidebarCollapsed && (
-            <h1 className="font-bold text-sm">AI Invoice App</h1>
-          )}
-          {!isMobile && (
-            <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
-              ☰
-            </button>
-          )}
-        </div>
-
-        {/* NAV */}
-        <nav className="p-4 space-y-2">
-          {NAVIGATION_MENU.map((item) => (
-            <NavigationItem
-              key={item.id}
-              item={item}
-              isActive={activeNavItem === item.id}
-              onClick={handleNavigation}
-              isCollapsed={sidebarCollapsed}
-            />
-          ))}
-        </nav>
-
-        {/* LOGOUT */}
-        <div className="mt-auto p-4 border-t">
-          <button
-            onClick={logout}
-            className="flex items-center gap-2 text-sm text-gray-500 hover:text-red-600"
-          >
-            <LogOut size={16} />
-            {!sidebarCollapsed && "Logout"}
-          </button>
-        </div>
-      </aside>
-
-      {/* ================= MAIN ================= */}
-      <div
-        className={`flex-1 flex flex-col transition-all
-        ${sidebarCollapsed ? "ml-20" : "ml-64"}
-        ${isMobile && "ml-0"}`}
-      >
-        {/* HEADER */}
-        <header className="h-16 bg-white border-b flex items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            {isMobile && (
-              <button onClick={() => setSidebarOpen(!sidebarOpen)}>
-                {sidebarOpen ? <X /> : <Menu />}
-              </button>
-            )}
-            <h1 className="text-sm font-semibold capitalize">
-              {activeNavItem}
-            </h1>
-          </div>
-
-          {/* PROFILE DROPDOWN */}
-          <ProfileDropdown
-  isOpen={profileDropdownOpen}
-  onToggle={(e) => {
-    e.stopPropagation();
-    setProfileDropdownOpen(!profileDropdownOpen);
-  }}
-  avatar={initials}
-  companyName={user?.name || ""}
-  email={user?.email || ""}
-  onLogout={logout}
-  onViewProfile={() => {
-    setActiveNavItem("profile");   // 🔥 THIS LINE
-    setProfileDropdownOpen(false); // close dropdown
-  }}
-/>
-        </header>
-
-        {/* CONTENT */}
-        <main className="flex-1 p-6 overflow-y-auto">
-
-          {activeNavItem === "dashboard" && <DashboardPage />}
-
-          {activeNavItem === "invoices" && <InvoicesPage />}
-
-          {activeNavItem === "invoices/new" && <CreateInvoicePage />}
-
-          {activeNavItem === "profile" && <ProfilePage />}
-
-        </main>
+    <div className={`bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4 ring-1 ${c.ring} shadow-sm`}>
+      <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${c.bg}`}>
+        <Icon className={`w-5 h-5 ${c.icon}`} />
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs text-gray-400 mb-0.5 truncate">{label}</p>
+        <p className="text-2xl font-bold text-gray-900 leading-none tracking-tight">{value}</p>
       </div>
     </div>
   );
 };
 
-export default DashboardLayout;
+const SkeletonRow = () => (
+  <tr className="border-b border-gray-50">
+    {[40, 28, 20, 16].map((w, i) => (
+      <td key={i} className="px-5 py-4">
+        <div className={`h-3.5 bg-gray-100 rounded animate-pulse w-${w}`} />
+      </td>
+    ))}
+  </tr>
+);
+
+const EmptyState = ({ onCreateClick }) => (
+  <div className="flex flex-col items-center justify-center py-16 text-center">
+    <div className="w-14 h-14 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center mb-4">
+      <ReceiptText className="w-6 h-6 text-gray-300" />
+    </div>
+    <p className="text-sm font-medium text-gray-700 mb-1">No invoices yet</p>
+    <p className="text-xs text-gray-400 mb-5">Create your first invoice to get started</p>
+    <button
+      onClick={onCreateClick}
+      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+    >
+      Create Invoice
+      <ArrowUpRight className="w-3.5 h-3.5" />
+    </button>
+  </div>
+);
+
+const Dashboard = ({ onNavigate }) => {
+  const [loading, setLoading] = useState(true);
+  const [statsData, setStatsData] = useState([]);
+  const [recentInvoices, setRecentInvoices] = useState([]);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const [statsRes, invoicesRes] = await Promise.all([
+          axiosInstance.get(API_PATHS.DASHBOARD.STATS),
+          axiosInstance.get(API_PATHS.DASHBOARD.RECENT_INVOICES),
+        ]);
+        const s = statsRes.data?.data ?? statsRes.data ?? {};
+        setStatsData([
+          { label: "Total Revenue", value: fmt(s.totalRevenue), icon: TrendingUp,    color: "blue"  },
+          { label: "Pending",        value: s.pending  ?? "—",   icon: Clock,         color: "amber" },
+          { label: "Paid",           value: s.paid     ?? "—",   icon: CheckCircle,   color: "green" },
+          { label: "Overdue",        value: s.overdue  ?? "—",   icon: AlertCircle,   color: "red"   },
+        ]);
+        setRecentInvoices(invoicesRes.data ?? []);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboardData();
+  }, []);
+
+  return (
+    <div className="space-y-6 max-w-6xl mx-auto">
+      {/* Page header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-gray-900">Overview</h2>
+          <p className="text-sm text-gray-400 mt-0.5">{moment().format("dddd, MMMM D, YYYY")}</p>
+        </div>
+        <button
+          onClick={() => onNavigate?.("invoices/new")}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 active:scale-95 transition-all"
+        >
+          <FileText className="w-4 h-4" />
+          New Invoice
+        </button>
+      </div>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+        {loading
+          ? Array(4).fill(0).map((_, i) => (
+              <div key={i} className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4 shadow-sm">
+                <div className="w-11 h-11 rounded-xl bg-gray-100 animate-pulse shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-2.5 bg-gray-100 rounded animate-pulse w-2/3" />
+                  <div className="h-5 bg-gray-100 rounded animate-pulse w-1/2" />
+                </div>
+              </div>
+            ))
+          : statsData.map((s, i) => <StatCard key={i} {...s} />)
+        }
+      </div>
+
+      {/* ✅ AI Insights Card */}
+      <AIInsightCard invoices={recentInvoices} stats={statsData} />
+
+      {/* Recent invoices */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-900">Recent Invoices</h3>
+          {!loading && recentInvoices.length > 0 && (
+            <button
+              onClick={() => onNavigate?.("invoices")}
+              className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+            >
+              View all <ArrowUpRight className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+
+        {loading ? (
+          <table className="w-full">
+            <tbody>
+              {Array(4).fill(0).map((_, i) => <SkeletonRow key={i} />)}
+            </tbody>
+          </table>
+        ) : recentInvoices.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px]">
+              <thead>
+                <tr className="border-b border-gray-50">
+                  {["Client", "Amount", "Status", "Due Date"].map((h) => (
+                    <th key={h} className="px-5 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {recentInvoices.map((inv) => (
+                  <tr key={inv._id} className="hover:bg-gray-50/50 transition-colors group">
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold flex items-center justify-center shrink-0">
+                          {inv.billTo?.clientName?.[0]?.toUpperCase() ?? "?"}
+                        </div>
+                        <span className="text-sm font-medium text-gray-800 truncate max-w-[160px]">
+                          {inv.billTo?.clientName ?? "—"}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className="text-sm font-semibold text-gray-900">
+                        {fmt(inv.total)}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <StatusBadge status={inv.status} />
+                    </td>
+                    <td className="px-5 py-3.5 text-sm text-gray-500">
+                      {inv.dueDate ? moment(inv.dueDate).format("MMM D, YYYY") : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyState onCreateClick={() => onNavigate?.("invoices/new")} />
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;

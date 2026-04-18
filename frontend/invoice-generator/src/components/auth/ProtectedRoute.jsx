@@ -1,5 +1,5 @@
 import { Navigate, Outlet } from "react-router-dom";
-import DashboardLayout from "../layout/DashboardLayout";
+import DashboardLayout from "../layout/DashBoardLayout";
 import { useAuth } from "../../context/authContext";
 
 const ProtectedRoute = ({ children }) => {
