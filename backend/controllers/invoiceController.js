@@ -98,7 +98,7 @@ exports.getInvoiceById = async (req, res) => {
     }
 
     // 🔥 ADD THIS CHECK
-    if (invoice.user.toString() !== req.user.id) {
+    if (invoice.user._id.toString() !== req.user.id) {
       return res.status(401).json({ message: "Not authorized" });
     }
 
