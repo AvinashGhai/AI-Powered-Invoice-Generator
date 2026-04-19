@@ -13,29 +13,29 @@ import { useAuth } from "../../context/authContext";
 import ProfileDropdown from "../../components/layout/ProfileDropDown";
 
 const NAVIGATION_MENU = [
-  { id: "dashboard",    name: "Dashboard",      icon: LayoutDashboard },
-  { id: "invoices",     name: "Invoices",        icon: FileText        },
-  { id: "invoices/new", name: "Create Invoice",  icon: Plus            },
-  { id: "profile",      name: "Profile",         icon: Users           },
+  { id: "dashboard", name: "Dashboard", icon: LayoutDashboard },
+  { id: "invoices", name: "Invoices", icon: FileText },
+  { id: "invoices/new", name: "Create Invoice", icon: Plus },
+  { id: "profile", name: "Profile", icon: Users },
 ];
 
 const PAGE_TITLES = {
-  dashboard:        "Dashboard",
-  invoices:         "Invoices",
-  "invoices/new":   "Create Invoice",
+  dashboard: "Dashboard",
+  invoices: "Invoices",
+  "invoices/new": "Create Invoice",
   "invoice-detail": "Invoice Detail",
-  profile:          "Profile",
+  profile: "Profile",
 };
 
 const DashboardLayout = () => {
   const { user, logout } = useAuth();
 
-  const [activeNavItem,       setActiveNavItem]       = useState("dashboard");
-  const [sidebarOpen,         setSidebarOpen]         = useState(true);
-  const [sidebarCollapsed,    setSidebarCollapsed]    = useState(false);
-  const [isMobile,            setIsMobile]            = useState(false);
+  const [activeNavItem, setActiveNavItem] = useState("dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
-  const [editInvoiceData,     setEditInvoiceData]     = useState(null);
+  const [editInvoiceData, setEditInvoiceData] = useState(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -82,12 +82,17 @@ const DashboardLayout = () => {
       >
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100 shrink-0">
           {(!sidebarCollapsed || isMobile) && (
-            <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => (window.location.href = "/")}
+              className="flex items-center gap-2.5 cursor-pointer"
+            >
               <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
                 <FileText className="w-3.5 h-3.5 text-white" />
               </div>
-              <span className="font-bold text-gray-900 text-sm">InvoiceAI</span>
-            </div>
+              <span className="font-bold text-gray-900 text-sm hover:text-blue-600 transition">
+                InvoiceAI
+              </span>
+            </button>
           )}
           {!isMobile && (
             <button
@@ -177,9 +182,9 @@ const DashboardLayout = () => {
 
         {/* CONTENT */}
         <main className="flex-1 p-6 overflow-y-auto">
-          {activeNavItem === "dashboard"      && <Dashboard onNavigate={navigate} />}
-          {activeNavItem === "invoices"       && <AllInvoices onNavigate={navigate} />}
-          {activeNavItem === "invoices/new"   && (
+          {activeNavItem === "dashboard" && <Dashboard onNavigate={navigate} />}
+          {activeNavItem === "invoices" && <AllInvoices onNavigate={navigate} />}
+          {activeNavItem === "invoices/new" && (
             <CreateInvoice
               key={editInvoiceData?._id ?? "new"}
               invoiceData={editInvoiceData}
@@ -193,7 +198,7 @@ const DashboardLayout = () => {
               onNavigate={navigate}
             />
           )}
-          {activeNavItem === "profile"        && <ProfilePage />}
+          {activeNavItem === "profile" && <ProfilePage />}
         </main>
       </div>
     </div>

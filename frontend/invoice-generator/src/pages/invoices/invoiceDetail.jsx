@@ -6,6 +6,8 @@ import { Loader2, Edit, Printer, AlertCircle, Mail } from "lucide-react";
 import toast from "react-hot-toast";
 import moment from "moment";
 import ReminderModal from "../../components/invoices/ReminderModal";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 const fmt = (n) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n || 0);
@@ -32,7 +34,45 @@ const InvoiceDetail = ({ invoiceId, onNavigate }) => {
     fetchInvoice();
   }, [invoiceId]);
 
-  const handlePrint = () => window.print();
+const handleDownloadPDF = async () => {
+  const element = invoiceRef.current;
+
+  if (!element) return;
+
+  try {
+    const canvas = await html2canvas(element, {
+      scale: 2, // better quality
+      useCORS: true,
+    });
+
+    const imgData = canvas.toDataURL("image/png");
+
+    const pdf = new jsPDF("p", "mm", "a4");
+
+    const imgWidth = 210; // A4 width
+    const pageHeight = 295;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+    let heightLeft = imgHeight;
+    let position = 0;
+
+    pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+
+    // handle multi-page
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+    }
+
+    pdf.save(`invoice-${invoice.invoiceNumber}.pdf`);
+  } catch (error) {
+    console.error("PDF generation error:", error);
+    toast.error("Failed to download PDF");
+  }
+};
 
   if (loading) {
     return (
@@ -102,7 +142,7 @@ const InvoiceDetail = ({ invoiceId, onNavigate }) => {
             Edit
           </button>
           <button
-            onClick={handlePrint}
+            onClick={handleDownloadPDF}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 border border-gray-200 transition-colors"
           >
             <Printer className="w-4 h-4" />
