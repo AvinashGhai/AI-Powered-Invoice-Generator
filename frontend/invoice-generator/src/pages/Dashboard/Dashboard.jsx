@@ -15,11 +15,11 @@ const fmt = (n) =>
     : "—";
 
 const STATUS_CONFIG = {
-  paid:    { label: "Paid",    bg: "bg-green-50", text: "text-green-700", dot: "bg-green-500" },
+  paid: { label: "Paid", bg: "bg-green-50", text: "text-green-700", dot: "bg-green-500" },
   pending: { label: "Pending", bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-400" },
-  overdue: { label: "Overdue", bg: "bg-red-50",   text: "text-red-700",   dot: "bg-red-500"   },
-  draft:   { label: "Draft",   bg: "bg-gray-100", text: "text-gray-600",  dot: "bg-gray-400"  },
-  unpaid:  { label: "Unpaid",  bg: "bg-orange-50",text: "text-orange-700",dot: "bg-orange-400"},
+  overdue: { label: "Overdue", bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500" },
+  draft: { label: "Draft", bg: "bg-gray-100", text: "text-gray-600", dot: "bg-gray-400" },
+  unpaid: { label: "Unpaid", bg: "bg-orange-50", text: "text-orange-700", dot: "bg-orange-400" },
 };
 
 const StatusBadge = ({ status }) => {
@@ -34,10 +34,10 @@ const StatusBadge = ({ status }) => {
 
 const StatCard = ({ label, value, icon: Icon, color }) => {
   const colors = {
-    blue:  { ring: "ring-blue-100",  bg: "bg-blue-50",  icon: "text-blue-600"  },
+    blue: { ring: "ring-blue-100", bg: "bg-blue-50", icon: "text-blue-600" },
     amber: { ring: "ring-amber-100", bg: "bg-amber-50", icon: "text-amber-500" },
     green: { ring: "ring-green-100", bg: "bg-green-50", icon: "text-green-600" },
-    red:   { ring: "ring-red-100",   bg: "bg-red-50",   icon: "text-red-500"   },
+    red: { ring: "ring-red-100", bg: "bg-red-50", icon: "text-red-500" },
   };
   const c = colors[color] ?? colors.blue;
   return (
@@ -98,17 +98,17 @@ const Dashboard = ({ onNavigate }) => {
 
         // ✅ Calculate stats from invoices locally
         const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
-        const paid    = invoices.filter((inv) => inv.status === "paid").length;
-        const unpaid  = invoices.filter((inv) => inv.status === "unpaid").length;
+        const paid = invoices.filter((inv) => inv.status === "paid").length;
+        const unpaid = invoices.filter((inv) => inv.status === "unpaid").length;
         const overdue = invoices.filter((inv) => {
           return inv.status !== "paid" && inv.dueDate && new Date(inv.dueDate) < new Date();
         }).length;
 
         setStatsData([
-          { label: "Total Revenue", value: fmt(totalRevenue), icon: TrendingUp,  color: "blue"  },
-          { label: "Unpaid",        value: unpaid,            icon: Clock,       color: "amber" },
-          { label: "Paid",          value: paid,              icon: CheckCircle, color: "green" },
-          { label: "Overdue",       value: overdue,           icon: AlertCircle, color: "red"   },
+          { label: "Total Revenue", value: fmt(totalRevenue), icon: TrendingUp, color: "blue" },
+          { label: "Unpaid", value: unpaid, icon: Clock, color: "amber" },
+          { label: "Paid", value: paid, icon: CheckCircle, color: "green" },
+          { label: "Overdue", value: overdue, icon: AlertCircle, color: "red" },
         ]);
 
         // ✅ Show only 5 most recent
@@ -144,14 +144,14 @@ const Dashboard = ({ onNavigate }) => {
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
         {loading
           ? Array(4).fill(0).map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4 shadow-sm">
-                <div className="w-11 h-11 rounded-xl bg-gray-100 animate-pulse shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-2.5 bg-gray-100 rounded animate-pulse w-2/3" />
-                  <div className="h-5 bg-gray-100 rounded animate-pulse w-1/2" />
-                </div>
+            <div key={i} className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4 shadow-sm">
+              <div className="w-11 h-11 rounded-xl bg-gray-100 animate-pulse shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-2.5 bg-gray-100 rounded animate-pulse w-2/3" />
+                <div className="h-5 bg-gray-100 rounded animate-pulse w-1/2" />
               </div>
-            ))
+            </div>
+          ))
           : statsData.map((s, i) => <StatCard key={i} {...s} />)
         }
       </div>
@@ -196,7 +196,11 @@ const Dashboard = ({ onNavigate }) => {
                   // ✅ handles both Clientname (backend typo) and clientName
                   const clientName = getClientName(inv.billTo);
                   return (
-                    <tr key={inv._id} className="hover:bg-gray-50/50 transition-colors group">
+                    <tr
+                      key={inv._id}
+                      onClick={() => onNavigate?.("invoice-detail", inv)}
+                      className="hover:bg-gray-50/50 transition-colors group cursor-pointer"
+                    >
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2.5">
                           <div className="w-7 h-7 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold flex items-center justify-center shrink-0">

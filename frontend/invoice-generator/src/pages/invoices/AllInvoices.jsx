@@ -4,19 +4,14 @@ import axiosInstance from "../../utils/axiosInstance";
 import { API_PATHS } from "../../utils/apiPaths";
 import { Loader2, Trash2, Edit, Search, FileText, Plus, AlertCircle, Sparkles, Mail } from "lucide-react";
 import moment from "moment";
-import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import CreateWithAIModal from "../../components/invoices/CreatewithAIModal";
+import ReminderModal from "../../components/invoices/ReminderModal";
 
-/* ── Placeholder modals (build later) ──────────────────────── */
-const CreateWithAIModal = ({ isOpen, onClose }) => null;
-const ReminderModal     = ({ isOpen, onClose }) => null;
-
-/* ── Helpers ────────────────────────────────────────────────── */
 const fmt = (n) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n || 0);
 
-const getClientName = (billTo) =>
-  billTo?.Clientname || billTo?.clientName || "—";
+const getClientName = (billTo) => billTo?.Clientname || billTo?.clientName || "—";
 
 const STATUS_CONFIG = {
   paid:   { label: "Paid",   bg: "bg-green-50",  text: "text-green-700",  dot: "bg-green-500"  },
@@ -33,9 +28,7 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-/* ── Component ──────────────────────────────────────────────── */
-const AllInvoices = () => {
-  const navigate = useNavigate();
+const AllInvoices = ({ onNavigate }) => {  // ← accept onNavigate prop
 
   const [invoices,            setInvoices]            = useState([]);
   const [loading,             setLoading]             = useState(true);
@@ -45,30 +38,29 @@ const AllInvoices = () => {
   const [statusFilter,        setStatusFilter]        = useState("All");
   const [isAiModalOpen,       setIsAiModalOpen]       = useState(false);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
-  const [selectedInvoiceId,   setSelectedInvoiceId]   = useState(null);
+  const [selectedInvoice,     setSelectedInvoice]     = useState(null);
   const [deleteLoading,       setDeleteLoading]       = useState(null);
 
-  /* ── Fetch ──────────────────────────────────────────────── */
   useEffect(() => {
     const fetchInvoices = async () => {
-  try {
-    const response = await axiosInstance.get(API_PATHS.INVOICE.GET_ALL_INVOICES);
-    console.log("RAW RESPONSE:", response.data);
-    setInvoices(
-      (Array.isArray(response.data) ? response.data : [])
-        .sort((a, b) => new Date(b.invoiceDate) - new Date(a.invoiceDate))
-    );
-  } catch (err) {
-    setError("Failed to fetch invoices.");
-    console.error(err);
-  } finally {
-    setLoading(false);
-  }
-};
+      try {
+        const response = await axiosInstance.get(API_PATHS.INVOICE.GET_ALL_INVOICES);
+        console.log("First invoice billTo:", response.data[0]?.billTo);
+        console.log("First invoice full:", response.data[0]);
+        setInvoices(
+          (Array.isArray(response.data) ? response.data : [])
+            .sort((a, b) => new Date(b.invoiceDate) - new Date(a.invoiceDate))
+        );
+      } catch (err) {
+        setError("Failed to fetch invoices.");
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchInvoices();
   }, []);
 
-  /* ── Delete ─────────────────────────────────────────────── */
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this invoice?")) return;
     setDeleteLoading(id);
@@ -84,7 +76,6 @@ const AllInvoices = () => {
     }
   };
 
-  /* ── Status Change ──────────────────────────────────────── */
   const handleStatusChange = async (invoice) => {
     const newStatus = invoice.status === "paid" ? "unpaid" : "paid";
     setStatusChangeLoading(invoice._id);
@@ -94,9 +85,7 @@ const AllInvoices = () => {
         status: newStatus,
       });
       setInvoices((prev) =>
-        prev.map((inv) =>
-          inv._id === invoice._id ? { ...inv, status: newStatus } : inv
-        )
+        prev.map((inv) => inv._id === invoice._id ? { ...inv, status: newStatus } : inv)
       );
       toast.success(`Marked as ${newStatus}.`);
     } catch (err) {
@@ -107,27 +96,26 @@ const AllInvoices = () => {
     }
   };
 
-  /* ── Reminder Modal ─────────────────────────────────────── */
-  const handleOpenReminderModal = (invoiceId) => {
-    setSelectedInvoiceId(invoiceId);
+  const handleOpenReminderModal = (invoice) => {
+    setSelectedInvoice(invoice);      // ← pass full invoice, not just id
     setIsReminderModalOpen(true);
   };
 
-  /* ── Filter ─────────────────────────────────────────────── */
+  const handleEditInvoice = (invoice) => {
+    onNavigate("invoices/new", invoice); // ← use internal navigation with invoice data
+  };
+
   const filteredInvoices = useMemo(() => {
     return invoices
-      .filter((invoice) =>
-        statusFilter === "All" || invoice.status === statusFilter
-      )
-      .filter((invoice) => {
+      .filter((inv) => statusFilter === "All" || inv.status === statusFilter)
+      .filter((inv) => {
         const term   = searchTerm.toLowerCase();
-        const num    = invoice.invoiceNumber?.toLowerCase() ?? "";
-        const client = getClientName(invoice.billTo).toLowerCase();
+        const num    = inv.invoiceNumber?.toLowerCase() ?? "";
+        const client = getClientName(inv.billTo).toLowerCase();
         return num.includes(term) || client.includes(term);
       });
   }, [invoices, searchTerm, statusFilter]);
 
-  /* ── Loading ────────────────────────────────────────────── */
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -136,7 +124,6 @@ const AllInvoices = () => {
     );
   }
 
-  /* ── Render ─────────────────────────────────────────────── */
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
 
@@ -144,10 +131,12 @@ const AllInvoices = () => {
       <CreateWithAIModal
         isOpen={isAiModalOpen}
         onClose={() => setIsAiModalOpen(false)}
+        onNavigate={onNavigate}
       />
       <ReminderModal
         isOpen={isReminderModalOpen}
-        onClose={() => setIsReminderModalOpen(false)}
+        onClose={() => { setIsReminderModalOpen(false); setSelectedInvoice(null); }}
+        invoice={selectedInvoice}
       />
 
       {/* Header */}
@@ -165,7 +154,7 @@ const AllInvoices = () => {
             AI Create
           </button>
           <button
-            onClick={() => navigate("/invoices/new")}
+            onClick={() => onNavigate("invoices/new")}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 active:scale-95 transition-all"
           >
             <Plus className="w-4 h-4" />
@@ -228,10 +217,7 @@ const AllInvoices = () => {
               <thead>
                 <tr className="border-b border-gray-50">
                   {["Invoice #", "Client", "Amount", "Status", "Due Date", "Actions"].map((h) => (
-                    <th
-                      key={h}
-                      className="px-5 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wide"
-                    >
+                    <th key={h} className="px-5 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
                       {h}
                     </th>
                   ))}
@@ -243,12 +229,10 @@ const AllInvoices = () => {
                   return (
                     <tr key={inv._id} className="hover:bg-gray-50/50 transition-colors group">
 
-                      {/* Invoice # */}
                       <td className="px-5 py-3.5 text-sm font-mono text-gray-500">
                         {inv.invoiceNumber}
                       </td>
 
-                      {/* Client */}
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2.5">
                           <div className="w-7 h-7 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold flex items-center justify-center shrink-0">
@@ -260,14 +244,10 @@ const AllInvoices = () => {
                         </div>
                       </td>
 
-                      {/* Amount */}
                       <td className="px-5 py-3.5">
-                        <span className="text-sm font-semibold text-gray-900">
-                          {fmt(inv.total)}
-                        </span>
+                        <span className="text-sm font-semibold text-gray-900">{fmt(inv.total)}</span>
                       </td>
 
-                      {/* Status — click to toggle */}
                       <td className="px-5 py-3.5">
                         <button
                           onClick={() => handleStatusChange(inv)}
@@ -282,25 +262,21 @@ const AllInvoices = () => {
                         </button>
                       </td>
 
-                      {/* Due Date */}
                       <td className="px-5 py-3.5 text-sm text-gray-500">
                         {inv.dueDate ? moment(inv.dueDate).format("MMM D, YYYY") : "—"}
                       </td>
 
-                      {/* Actions */}
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
-                            onClick={() => handleOpenReminderModal(inv._id)}
+                            onClick={() => handleOpenReminderModal(inv)}
                             className="w-7 h-7 rounded-lg hover:bg-blue-50 flex items-center justify-center text-gray-400 hover:text-blue-600 transition-colors"
                             title="Send reminder"
                           >
                             <Mail className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() =>
-                              navigate("/invoices/new", { state: { invoiceData: inv } })
-                            }
+                            onClick={() => handleEditInvoice(inv)}
                             className="w-7 h-7 rounded-lg hover:bg-amber-50 flex items-center justify-center text-gray-400 hover:text-amber-600 transition-colors"
                             title="Edit invoice"
                           >
@@ -329,13 +305,11 @@ const AllInvoices = () => {
         )}
       </div>
 
-      {/* Footer count */}
       {filteredInvoices.length > 0 && (
         <p className="text-xs text-gray-400 text-center">
           Showing {filteredInvoices.length} of {invoices.length} invoice{invoices.length !== 1 ? "s" : ""}
         </p>
       )}
-
     </div>
   );
 };
