@@ -11,14 +11,17 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@google/genai": "^1.48.0",
+    "@google/genai": "^1.50.1",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.0",
-    "express": "^5.2.1",
+    "express": "^4.22.1",
+    "groq-sdk": "^1.1.2",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.4.1",
-    "multer": "^2.1.1"
+    "multer": "^2.1.1",
+    "node-cron": "^4.2.1",
+    "openai": "^6.34.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

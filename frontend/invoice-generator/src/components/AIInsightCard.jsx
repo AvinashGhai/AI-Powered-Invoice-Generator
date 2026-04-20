@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Lightbulb, Sparkles, RefreshCw } from "lucide-react";
 import axiosInstance from "../utils/axiosInstance";
 import { API_PATHS } from "../utils/apiPaths";
+import { useRef } from "react";
 
 const AIInsightsCard = () => {
   const [insights, setInsights] = useState([]);
@@ -20,9 +21,17 @@ const AIInsightsCard = () => {
     }
   };
 
-  useEffect(() => {
+  const [hasFetched, setHasFetched] = useState(false);
+
+  const hasFetchedRef = useRef(false);
+
+useEffect(() => {
+  if (!hasFetchedRef.current) {
     fetchInsights();
-  }, []);
+    hasFetchedRef.current = true;
+  }
+}, []);
+
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">

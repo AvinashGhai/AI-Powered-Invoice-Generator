@@ -1,37 +1,37 @@
 require("dotenv").config();
-const express = require("express");
-const cors = require("cors");
-const path = require("path");
+const express  = require("express");
+const cors     = require("cors");
+const cron     = require("node-cron");
 const connectDB = require("./config/db");
 
-const authRoutes = require("./routes/authRoute");
-const invoiceRoutes = require("./routes/invoiceRoute");
-const aiRoutes = require("./routes/aiRoute");
+const authRoutes      = require("./routes/authRoute");
+const invoiceRoutes   = require("./routes/invoiceRoute");
+const aiRoutes        = require("./routes/aiRoute");
+const recurringRoutes = require("./routes/RecurringRoute");
+
+const { processRecurringInvoices } = require("./controllers/RecurringController");
 
 const app = express();
 
-//Middleware to handle cors
-app.use(
-    cors({
-        origin:"*",
-        methods:["GET","POST","PUT","DELETE"],
-        allowedHeaders:["Content-Type","Authorization"],
-    })
-);
+app.use(cors({
+  origin:         "*",
+  methods:        ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
 
-
-
-//connect database
 connectDB();
-
-//Middleware
 app.use(express.json());
 
-//Routes here
-app.use("/api/auth", authRoutes);
-app.use("/api/invoices", invoiceRoutes);
-app.use("/api/ai",aiRoutes);
+app.use("/api/auth",      authRoutes);
+app.use("/api/invoices",  invoiceRoutes);
+app.use("/api/ai",        aiRoutes);
+app.use("/api/recurring", recurringRoutes);
 
-//Start Server
-const PORT = process.env.PORT || 5000;
+// ── Cron job: runs every day at midnight ─────────────────
+cron.schedule("0 0 * * *", async () => {
+  console.log("⏰ Running recurring invoice cron job...");
+  await processRecurringInvoices();
+});
+
+const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

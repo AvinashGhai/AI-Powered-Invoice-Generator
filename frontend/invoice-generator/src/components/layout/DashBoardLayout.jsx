@@ -3,39 +3,42 @@ import { useState, useEffect } from "react";
 import CreateInvoice from "../../pages/invoices/CreateInvoices";
 import AllInvoices from "../../pages/invoices/AllInvoices";
 import InvoiceDetail from "../../pages/invoices/InvoiceDetail";
+import RecurringPage from "../../pages/Recurring/RecurringPage";
 import ProfilePage from "../../pages/Profile/ProfilePage";
 import Dashboard from "../../pages/Dashboard/Dashboard";
 import {
   LayoutDashboard, FileText, Plus, Users,
-  LogOut, Menu, X, ChevronLeft,
+  LogOut, Menu, X, ChevronLeft, RefreshCw,
 } from "lucide-react";
 import { useAuth } from "../../context/authContext";
 import ProfileDropdown from "../../components/layout/ProfileDropDown";
 
 const NAVIGATION_MENU = [
-  { id: "dashboard", name: "Dashboard", icon: LayoutDashboard },
-  { id: "invoices", name: "Invoices", icon: FileText },
-  { id: "invoices/new", name: "Create Invoice", icon: Plus },
-  { id: "profile", name: "Profile", icon: Users },
+  { id: "dashboard",  name: "Dashboard",     icon: LayoutDashboard },
+  { id: "invoices",   name: "Invoices",       icon: FileText        },
+  { id: "recurring",  name: "Recurring",      icon: RefreshCw       },
+  { id: "invoices/new", name: "Create Invoice", icon: Plus          },
+  { id: "profile",    name: "Profile",        icon: Users           },
 ];
 
 const PAGE_TITLES = {
-  dashboard: "Dashboard",
-  invoices: "Invoices",
-  "invoices/new": "Create Invoice",
+  dashboard:        "Dashboard",
+  invoices:         "Invoices",
+  recurring:        "Recurring Invoices",
+  "invoices/new":   "Create Invoice",
   "invoice-detail": "Invoice Detail",
-  profile: "Profile",
+  profile:          "Profile",
 };
 
 const DashboardLayout = () => {
   const { user, logout } = useAuth();
 
-  const [activeNavItem, setActiveNavItem] = useState("dashboard");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const [activeNavItem,       setActiveNavItem]       = useState("dashboard");
+  const [sidebarOpen,         setSidebarOpen]         = useState(true);
+  const [sidebarCollapsed,    setSidebarCollapsed]    = useState(false);
+  const [isMobile,            setIsMobile]            = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
-  const [editInvoiceData, setEditInvoiceData] = useState(null);
+  const [editInvoiceData,     setEditInvoiceData]     = useState(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -182,9 +185,10 @@ const DashboardLayout = () => {
 
         {/* CONTENT */}
         <main className="flex-1 p-6 overflow-y-auto">
-          {activeNavItem === "dashboard" && <Dashboard onNavigate={navigate} />}
-          {activeNavItem === "invoices" && <AllInvoices onNavigate={navigate} />}
-          {activeNavItem === "invoices/new" && (
+          {activeNavItem === "dashboard"      && <Dashboard onNavigate={navigate} />}
+          {activeNavItem === "invoices"       && <AllInvoices onNavigate={navigate} />}
+          {activeNavItem === "recurring"      && <RecurringPage />}
+          {activeNavItem === "invoices/new"   && (
             <CreateInvoice
               key={editInvoiceData?._id ?? "new"}
               invoiceData={editInvoiceData}
