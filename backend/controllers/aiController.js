@@ -76,6 +76,9 @@ const generateReminderEmail = async (req, res) => {
 /**
  * 3. Dashboard Summary
  */
+/**
+ * 3. Dashboard Summary
+ */
 const getDashboardSummary = async (req, res) => {
   try {
     if (!req.user || !req.user._id) {
@@ -84,24 +87,116 @@ const getDashboardSummary = async (req, res) => {
 
     const invoices = await Invoice.find({ user: req.user._id });
 
-    const totalRevenue = invoices.reduce((acc, inv) => acc + (inv.total || 0), 0);
-    const paidInvoices = invoices.filter(i => i.status === "paid").length;
-    const unpaidInvoices = invoices.filter(i => i.status === "unpaid").length;
+    if (invoices.length === 0) {
+      return res.status(200).json({
+        totalRevenue: 0,
+        totalInvoices: 0,
+        paidInvoices: 0,
+        unpaidInvoices: 0,
+        insights: [
+          "Create your first invoice to start receiving AI-powered insights.",
+          "Once you have invoices, I'll analyze your payment patterns and revenue trends.",
+          "Track clients, overdue payments, and cash flow all in one place.",
+        ],
+      });
+    }
 
-    const prompt = `Dashboard Stats: Total Revenue ₹${totalRevenue}, Paid Invoices: ${paidInvoices}, Unpaid Invoices: ${unpaidInvoices}. 
-    Based on these numbers, give 3 ultra-short business insights as bullet points.`;
+    // ── Compute rich stats ──────────────────────────────────────────
+    const now = new Date();
+
+    const totalRevenue    = invoices.reduce((s, i) => s + (i.total || 0), 0);
+    const paidInvoices    = invoices.filter(i => i.status === "paid");
+    const unpaidInvoices  = invoices.filter(i => i.status === "unpaid");
+    const overdueInvoices = unpaidInvoices.filter(i => i.dueDate && new Date(i.dueDate) < now);
+
+    const paidRevenue     = paidInvoices.reduce((s, i) => s + (i.total || 0), 0);
+    const unpaidRevenue   = unpaidInvoices.reduce((s, i) => s + (i.total || 0), 0);
+    const overdueRevenue  = overdueInvoices.reduce((s, i) => s + (i.total || 0), 0);
+
+    const collectionRate  = invoices.length
+      ? Math.round((paidInvoices.length / invoices.length) * 100)
+      : 0;
+
+    // Average days to pay (for paid invoices that have both dates)
+    const paidWithDates = paidInvoices.filter(i => i.invoiceDate && i.dueDate);
+    const avgDaysToPay  = paidWithDates.length
+      ? Math.round(
+          paidWithDates.reduce((s, i) => {
+            return s + Math.abs((new Date(i.dueDate) - new Date(i.invoiceDate)) / 86400000);
+          }, 0) / paidWithDates.length
+        )
+      : null;
+
+    // Top client by revenue
+    const clientMap = {};
+    invoices.forEach(i => {
+      const name = i.billTo?.clientName || i.billTo?.Clientname || "Unknown";
+      clientMap[name] = (clientMap[name] || 0) + (i.total || 0);
+    });
+    const topClient = Object.entries(clientMap).sort((a, b) => b[1] - a[1])[0];
+
+    // This month vs last month revenue
+    const thisMonth = invoices.filter(i => {
+      const d = new Date(i.invoiceDate);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }).reduce((s, i) => s + (i.total || 0), 0);
+
+    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonth = invoices.filter(i => {
+      const d = new Date(i.invoiceDate);
+      return d.getMonth() === lastMonthDate.getMonth() && d.getFullYear() === lastMonthDate.getFullYear();
+    }).reduce((s, i) => s + (i.total || 0), 0);
+
+    const monthGrowth = lastMonth > 0
+      ? Math.round(((thisMonth - lastMonth) / lastMonth) * 100)
+      : null;
+
+    // Most common invoice item
+    const itemMap = {};
+    invoices.forEach(i => (i.items || []).forEach(item => {
+      const name = item.name?.trim();
+      if (name) itemMap[name] = (itemMap[name] || 0) + 1;
+    }));
+    const topItem = Object.entries(itemMap).sort((a, b) => b[1] - a[1])[0];
+
+    // ── Build detailed prompt ───────────────────────────────────────
+    const prompt = `You are a smart financial assistant analyzing invoice data for a freelancer or small business owner. 
+Based on the following real data, generate exactly 5 specific, actionable, and personalized insights. 
+Each insight must be a single clear sentence. Do not use bullet points, numbers, or labels — just plain sentences separated by newlines.
+
+DATA:
+- Total invoices: ${invoices.length}
+- Total revenue: $${totalRevenue.toFixed(2)}
+- Paid invoices: ${paidInvoices.length} ($${paidRevenue.toFixed(2)})
+- Unpaid invoices: ${unpaidInvoices.length} ($${unpaidRevenue.toFixed(2)})
+- Overdue invoices: ${overdueInvoices.length} ($${overdueRevenue.toFixed(2)})
+- Collection rate: ${collectionRate}%
+- Average payment window: ${avgDaysToPay !== null ? avgDaysToPay + " days" : "not enough data"}
+- Top client by revenue: ${topClient ? topClient[0] + " ($" + topClient[1].toFixed(2) + ")" : "not enough data"}
+- This month revenue: $${thisMonth.toFixed(2)}
+- Last month revenue: $${lastMonth.toFixed(2)}
+- Month-over-month growth: ${monthGrowth !== null ? monthGrowth + "%" : "not enough data"}
+- Most billed service/item: ${topItem ? topItem[0] + " (" + topItem[1] + " times)" : "not enough data"}
+
+Generate 5 insights that are specific to this data. Reference actual numbers. Give actionable advice where possible.`;
 
     const text = await generateAIResponse(prompt);
 
     const insightsArray = text
-      ? text.split("\n").map(l => l.replace(/^[-•*]\s*/, "").trim()).filter(l => l.length > 5)
-      : ["Analyzing your revenue...", "System status healthy."];
+      ? text.split("\n").map(l => l.replace(/^[-•*\d.]\s*/, "").trim()).filter(l => l.length > 10).slice(0, 5)
+      : [
+          `Your collection rate is ${collectionRate}% — ${collectionRate >= 70 ? "great job!" : "consider sending reminders to unpaid clients."}`,
+          `You have $${unpaidRevenue.toFixed(2)} in outstanding invoices.`,
+          overdueInvoices.length > 0 ? `${overdueInvoices.length} invoice(s) are overdue totaling $${overdueRevenue.toFixed(2)}.` : "No overdue invoices — great!",
+          topClient ? `${topClient[0]} is your top client with $${topClient[1].toFixed(2)} billed.` : "Add more clients to diversify revenue.",
+          monthGrowth !== null ? `Revenue ${monthGrowth >= 0 ? "grew" : "dropped"} by ${Math.abs(monthGrowth)}% compared to last month.` : "Keep creating invoices to track monthly growth.",
+        ];
 
     res.status(200).json({
       totalRevenue,
       totalInvoices: invoices.length,
-      paidInvoices,
-      unpaidInvoices,
+      paidInvoices: paidInvoices.length,
+      unpaidInvoices: unpaidInvoices.length,
       insights: insightsArray,
     });
   } catch (error) {
