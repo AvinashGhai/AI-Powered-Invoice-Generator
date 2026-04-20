@@ -6,16 +6,15 @@ import { Loader2, Edit, Printer, AlertCircle, Mail } from "lucide-react";
 import toast from "react-hot-toast";
 import moment from "moment";
 import ReminderModal from "../../components/invoices/ReminderModal";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import html2pdf from "html2pdf.js";
 
 const fmt = (n) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n || 0);
 
 const InvoiceDetail = ({ invoiceId, onNavigate }) => {
-  const [invoice,              setInvoice]              = useState(null);
-  const [loading,              setLoading]              = useState(true);
-  const [isReminderModalOpen,  setIsReminderModalOpen]  = useState(false);
+  const [invoice,             setInvoice]             = useState(null);
+  const [loading,             setLoading]             = useState(true);
+  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const invoiceRef = useRef();
 
   useEffect(() => {
@@ -34,45 +33,73 @@ const InvoiceDetail = ({ invoiceId, onNavigate }) => {
     fetchInvoice();
   }, [invoiceId]);
 
-const handleDownloadPDF = async () => {
-  const element = invoiceRef.current;
+  const handleDownloadPDF = () => {
+    const element = invoiceRef.current;
+    if (!element) return;
 
-  if (!element) return;
+    const opt = {
+      margin:      [10, 10, 10, 10],
+      filename:    `invoice-${invoice.invoiceNumber}.pdf`,
+      image:       { type: "jpeg", quality: 0.98 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        onclone: (clonedDoc) => {
+          // Inject a style override in the cloned document to replace oklch with safe hex values
+          const styleEl = clonedDoc.createElement("style");
+          styleEl.innerHTML = `
+            *, *::before, *::after {
+              color: #111111 !important;
+              background-color: #ffffff !important;
+              border-color: #e5e7eb !important;
+            }
+            .bg-gradient-to-r {
+              background: #2563eb !important;
+              color: #ffffff !important;
+            }
+            .bg-gradient-to-r * {
+              color: #ffffff !important;
+            }
+            .bg-gray-50 {
+              background-color: #f9fafb !important;
+            }
+            .text-blue-600 {
+              color: #2563eb !important;
+            }
+            .text-gray-400 {
+              color: #9ca3af !important;
+            }
+            .text-gray-500 {
+              color: #6b7280 !important;
+            }
+            .text-gray-800 {
+              color: #1f2937 !important;
+            }
+            .text-gray-900 {
+              color: #111827 !important;
+            }
+            .text-white {
+              color: #ffffff !important;
+            }
+            .border-gray-100 {
+              border-color: #f3f4f6 !important;
+            }
+            .border-gray-200 {
+              border-color: #e5e7eb !important;
+            }
+            .divide-y > * {
+              border-color: #f3f4f6 !important;
+            }
+          `;
+          clonedDoc.head.appendChild(styleEl);
+        },
+      },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+    };
 
-  try {
-    const canvas = await html2canvas(element, {
-      scale: 2, // better quality
-      useCORS: true,
-    });
-
-    const imgData = canvas.toDataURL("image/png");
-
-    const pdf = new jsPDF("p", "mm", "a4");
-
-    const imgWidth = 210; // A4 width
-    const pageHeight = 295;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-    let heightLeft = imgHeight;
-    let position = 0;
-
-    pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
-
-    // handle multi-page
-    while (heightLeft > 0) {
-      position = heightLeft - imgHeight;
-      pdf.addPage();
-      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-    }
-
-    pdf.save(`invoice-${invoice.invoiceNumber}.pdf`);
-  } catch (error) {
-    console.error("PDF generation error:", error);
-    toast.error("Failed to download PDF");
-  }
-};
+    html2pdf().set(opt).from(element).save();
+  };
 
   if (loading) {
     return (
@@ -161,7 +188,7 @@ const handleDownloadPDF = async () => {
               <p className="text-blue-100 text-xs font-medium uppercase tracking-wide mb-1">Invoice</p>
               <p className="text-2xl font-bold">{invoice.invoiceNumber}</p>
             </div>
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/20 text-white`}>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/20 text-white">
               <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dot}`} />
               {statusCfg.label}
             </span>
@@ -191,8 +218,8 @@ const handleDownloadPDF = async () => {
           {/* Dates */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {[
-              { label: "Invoice Date", value: moment(invoice.invoiceDate).format("MMM D, YYYY") },
-              { label: "Due Date",     value: invoice.dueDate ? moment(invoice.dueDate).format("MMM D, YYYY") : "—" },
+              { label: "Invoice Date",  value: moment(invoice.invoiceDate).format("MMM D, YYYY") },
+              { label: "Due Date",      value: invoice.dueDate ? moment(invoice.dueDate).format("MMM D, YYYY") : "—" },
               { label: "Payment Terms", value: invoice.paymentTerms || "—" },
             ].map(({ label, value }) => (
               <div key={label} className="bg-gray-50 rounded-xl p-4">
@@ -219,7 +246,7 @@ const handleDownloadPDF = async () => {
                 <tbody className="divide-y divide-gray-50">
                   {invoice.items?.map((item, i) => {
                     const lineTotal =
-                      (Number(item.quantity) || 0) *
+                      (Number(item.quantity)  || 0) *
                       (Number(item.unitPrice) || 0) *
                       (1 + (Number(item.taxPercent) || 0) / 100);
                     return (

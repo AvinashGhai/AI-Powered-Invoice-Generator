@@ -1,4 +1,4 @@
-export const BASE_URL = "http://localhost:8000";
+export const BASE_URL = "https://ai-powered-invoice-generator-c7b8.onrender.com";
 
 export const API_PATHS = {
   AUTH: {
@@ -15,10 +15,10 @@ export const API_PATHS = {
     DELETE_INVOICE:    (id) => `/api/invoices/${id}`,
   },
   AI: {
-    PARSE_INVOICE_TEXT:   "/api/ai/parse-text",
-    GENERATE_REMINDER:    "/api/ai/generate-reminder",
+    PARSE_INVOICE_TEXT:    "/api/ai/parse-text",
+    GENERATE_REMINDER:     "/api/ai/generate-reminder",
     GET_DASHBOARD_SUMMARY: "/api/ai/dashboard-summary",
-    PARSE_RECURRING:      "/api/ai/parse-recurring",
+    PARSE_RECURRING:       "/api/ai/parse-recurring",
   },
   RECURRING: {
     CREATE:  "/api/recurring/",

@@ -29,7 +29,7 @@ app.use("/api/recurring", recurringRoutes);
 
 // ── Cron job: runs every day at midnight ─────────────────
 cron.schedule("0 0 * * *", async () => {
-  console.log("⏰ Running recurring invoice cron job...");
+  console.log(" Running recurring invoice cron job...");
   await processRecurringInvoices();
 });
 
