@@ -2,6 +2,7 @@ const aiCache = {};
 console.log("NEW AI SYSTEM RUNNING");
 const Invoice = require("../models/Invoice");
 const Groq = require("groq-sdk");
+const crypto = require("crypto");
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -11,7 +12,11 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
  * @param {boolean} jsonMode - when true, asks Groq to guarantee valid JSON output
  */
 const generateAIResponse = async (prompt, jsonMode = false) => {
-  const cacheKey = Buffer.from(prompt).toString('base64').slice(0, 50);
+  // Hash the FULL prompt so different inputs never collide.
+  // (Previously this took the first 50 chars of base64(prompt),
+  // which was entirely consumed by the fixed instruction text —
+  // every request landed on the same key regardless of input.)
+  const cacheKey = crypto.createHash("sha256").update(prompt).digest("hex");
 
   // Return cached response if exists and less than 1 hour old
   if (aiCache[cacheKey] && Date.now() - aiCache[cacheKey].time < 3600000) {
