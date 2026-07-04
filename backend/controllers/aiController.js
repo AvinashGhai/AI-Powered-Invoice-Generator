@@ -7,10 +7,12 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 /**
  * Centralized AI Helper
+ * @param {string} prompt
+ * @param {boolean} jsonMode - when true, asks Groq to guarantee valid JSON output
  */
-const generateAIResponse = async (prompt) => {
+const generateAIResponse = async (prompt, jsonMode = false) => {
   const cacheKey = Buffer.from(prompt).toString('base64').slice(0, 50);
-  
+
   // Return cached response if exists and less than 1 hour old
   if (aiCache[cacheKey] && Date.now() - aiCache[cacheKey].time < 3600000) {
     return aiCache[cacheKey].text;
@@ -20,16 +22,34 @@ const generateAIResponse = async (prompt) => {
     const response = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       messages: [{ role: "user", content: prompt }],
+      // Groq guarantees syntactically valid JSON when this is set,
+      // as long as the prompt itself mentions "json".
+      ...(jsonMode ? { response_format: { type: "json_object" } } : {}),
     });
     const text = response.choices[0].message.content;
     aiCache[cacheKey] = { text, time: Date.now() };
     return text;
   } catch (error) {
     console.error("AI Error:", JSON.stringify(error));
-    return "• Unable to generate insights\n• Try again later";
+    return null;
   }
 };
 
+/**
+ * Safely parse AI JSON output. Returns { data, error }.
+ * Even with jsonMode, we defensively strip markdown fences in case
+ * a future model/prompt tweak reintroduces them.
+ */
+const safeJsonParse = (rawText) => {
+  if (!rawText) return { data: null, error: "AI returned no content" };
+  const cleaned = rawText.replace(/```json|```/g, "").trim();
+  try {
+    return { data: JSON.parse(cleaned), error: null };
+  } catch (err) {
+    console.error("JSON Parse Error:", err.message, "Raw:", cleaned.slice(0, 200));
+    return { data: null, error: "AI returned malformed JSON" };
+  }
+};
 
 /**
  * 1. Parse Invoice from Text
@@ -39,7 +59,7 @@ const parseInvoiceFromText = async (req, res) => {
     const { text } = req.body;
     if (!text) return res.status(400).json({ message: "Text is required" });
 
-    const prompt = `Extract invoice details from this text and return ONLY a valid JSON object with no markdown or backticks:
+    const prompt = `Extract invoice details from this text and return a valid JSON object:
     {
       "clientName": "string",
       "email": "string",
@@ -47,11 +67,14 @@ const parseInvoiceFromText = async (req, res) => {
     }
     Text: ${text}`;
 
-    const aiText = await generateAIResponse(prompt);
-    if (!aiText) throw new Error("AI failed to return data");
+    const aiText = await generateAIResponse(prompt, true);
+    const { data, error } = safeJsonParse(aiText);
 
-    const clean = aiText.replace(/```json|```/g, "").trim();
-    res.status(200).json(JSON.parse(clean));
+    if (error) {
+      return res.status(502).json({ message: "AI could not extract invoice details. Try rephrasing the text." });
+    }
+
+    res.status(200).json(data);
   } catch (error) {
     console.error("Parse Invoice Error:", error);
     res.status(500).json({ message: "Failed to parse invoice structure" });
@@ -73,9 +96,6 @@ const generateReminderEmail = async (req, res) => {
   }
 };
 
-/**
- * 3. Dashboard Summary
- */
 /**
  * 3. Dashboard Summary
  */
@@ -213,14 +233,20 @@ const parseRecurringSchedule = async (req, res) => {
     const { text } = req.body;
     if (!text) return res.status(400).json({ message: "Text is required" });
 
-    const prompt = `Return ONLY a valid JSON object with no markdown or backticks for this recurring schedule:
+    const prompt = `Return a valid JSON object for this recurring schedule:
     { "clientName": "string", "email": "string", "amount": number, "frequency": "monthly|yearly", "startDate": "YYYY-MM-DD" }
     Text: ${text}`;
 
-    const aiText = await generateAIResponse(prompt);
-    const clean = aiText.replace(/```json|```/g, "").trim();
-    res.status(200).json(JSON.parse(clean));
+    const aiText = await generateAIResponse(prompt, true);
+    const { data, error } = safeJsonParse(aiText);
+
+    if (error) {
+      return res.status(502).json({ message: "AI could not extract a recurring schedule. Try rephrasing the text." });
+    }
+
+    res.status(200).json(data);
   } catch (error) {
+    console.error("Parse Recurring Error:", error);
     res.status(500).json({ message: "Failed to parse schedule" });
   }
 };
