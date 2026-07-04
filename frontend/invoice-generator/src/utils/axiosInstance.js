@@ -32,11 +32,18 @@ axiosInstance.interceptors.response.use(
     return response;
   },
   (error) => {
+    const requestUrl = error.config?.url || "";
+    const isAuthEndpoint =
+      requestUrl.includes("/api/auth/login") ||
+      requestUrl.includes("/api/auth/register");
+
     if (error.response) {
-      if (error.response.status === 401) {
+      if (error.response.status === 401 && !isAuthEndpoint) {
         console.error("Unauthorized! Token missing or expired. Redirecting to login...");
-        localStorage.removeItem("token"); // clear bad token
-        window.location.href = "/Login";  // redirect to login
+        localStorage.removeItem("token");
+        if (window.location.pathname.toLowerCase() !== "/login") {
+          window.location.href = "/Login";
+        }
       }
       if (error.response.status === 403) {
         console.error("Forbidden. You don't have access.");
