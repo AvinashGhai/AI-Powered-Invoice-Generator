@@ -79,6 +79,13 @@ const parseInvoiceFromText = async (req, res) => {
       return res.status(502).json({ message: "AI could not extract invoice details. Try rephrasing the text." });
     }
 
+    // Valid JSON, but nothing useful in it (e.g. input had no invoice info at all)
+    const hasClient = data?.clientName && data.clientName.trim().length > 0;
+    const hasItems  = Array.isArray(data?.items) && data.items.length > 0;
+    if (!hasClient && !hasItems) {
+      return res.status(422).json({ message: "Couldn't find any invoice details in that text. Try including a client name and at least one item." });
+    }
+
     res.status(200).json(data);
   } catch (error) {
     console.error("Parse Invoice Error:", error);
