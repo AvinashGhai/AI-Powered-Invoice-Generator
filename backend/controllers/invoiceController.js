@@ -63,6 +63,14 @@ exports.createInvoice = async (req, res) => {
     res.status(201).json(invoice);
 
   } catch (error) {
+    // Duplicate invoiceNumber for this user — give the client a specific,
+    // actionable message instead of a generic 500.
+    if (error.code === 11000) {
+      return res.status(409).json({
+        message: "That invoice number is already in use. Please choose a different invoice number and try again.",
+        error: error.message,
+      });
+    }
     res.status(500).json({ message: "Error creating invoice", error: error.message });
   }
 };

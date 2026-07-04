@@ -4,7 +4,7 @@ const itemSchema = new mongoose.Schema({
   name:       { type: String, required: true },
   quantity:   { type: Number, required: true },
   unitPrice:  { type: Number, required: true },
-  taxPrecent: { type: Number, required: true }, // keeping original spelling to match controller
+  taxPrecent: { type: Number, required: true }, 
   total:      { type: Number, required: true },
 });
 
@@ -14,14 +14,14 @@ const invoiceSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  invoiceSchema: {   // required by controller
+  invoiceSchema: {   
     type: String,
     required: true
   },
   invoiceNumber: {
     type: String,
-    required: true,
-    unique: true
+    required: true
+  
   },
   invoiceDate: {
     type: Date,
@@ -30,14 +30,14 @@ const invoiceSchema = new mongoose.Schema({
   dueDate: {
     type: Date,
   },
-  billFrom: {        // ← fixed: was "billForm"
+  billFrom: {
     businessName: String,
     email:        String,
     address:      String,
     phone:        String,
   },
   billTo: {
-    clientName: String,  // ← fixed: was "clientname"
+    clientName: String,
     email:      String,
     address:    String,
     phone:      String,
@@ -56,10 +56,13 @@ const invoiceSchema = new mongoose.Schema({
     default: "unpaid"
   },
   subtotal: Number,
-  taxtotal: Number,  // keeping as taxtotal to match controller
+  taxtotal: Number,
   total:    Number,
 },
 { timestamps: true }
 );
+
+
+invoiceSchema.index({ user: 1, invoiceNumber: 1 }, { unique: true });
 
 module.exports = mongoose.model('Invoice', invoiceSchema);
